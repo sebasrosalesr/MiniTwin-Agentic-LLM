@@ -1,51 +1,46 @@
-# /content/skybar/intents/ticket_requests.py
 import re
 import pandas as pd
+import streamlit as st
+from io import StringIO
 
 def intent_ticket_requests(query: str, df: pd.DataFrame) -> str | None:
     """
-    Handle queries like:
-      - "Show me all the requests for ticket R-040699"
-      - "Display all data for ticket R-048484"
-      - "List everything related to ticket R-123456"
+    Example trigger phrases:
+      - "show me all the requests for ticket R-040699"
+      - "MiniTwin, all entries for R-045013"
+      - "display every record for ticket R-XXXXXX"
     """
 
-    q_low = query.lower()
-    if "ticket" not in q_low and "r-" not in q_low:
+    m = re.search(r"(R-\d+)", query, flags=re.IGNORECASE)
+    if not m:
         return None
 
-    # Extract ticket IDs
-    matches = re.findall(r"R-\d{3,}", query, flags=re.IGNORECASE)
-    if not matches:
-        return None
+    ticket = m.group(1).upper()
 
-    # Normalize
-    ticket_ids = [m.upper().strip() for m in matches]
+    mask = df["Ticket Number"].astype(str).str.upper() == ticket
+    df_match = df[mask].copy()
 
-    # Make sure column exists
-    if "Ticket Number" not in df.columns:
-        return "I can't find ticket details because the `Ticket Number` column is missing."
+    if df_match.empty:
+        return f"No rows found for **{ticket}**."
 
-    df_norm = df.copy()
-    df_norm["Ticket Number"] = df_norm["Ticket Number"].astype(str).str.upper().str.strip()
+    # ---- SUMMARY OUTPUT ----
+    total_rows = len(df_match)
+    total_credit = pd.to_numeric(df_match.get("Credit Request Total", 0), errors="coerce").sum()
 
-    all_lines = []
-    global LAST_TICKET_LOOKUP
-    LAST_TICKET_LOOKUP = None  # reset for Streamlit
+    st.markdown(f"### 📄 All entries for ticket **{ticket}**")
+    st.markdown(f"- Rows found: **{total_rows}**")
+    st.markdown(f"- Total Credit Request Total: **${total_credit:,.2f}**")
 
-    for tid in ticket_ids:
-        subset = df_norm[df_norm["Ticket Number"] == tid]
+    # ---- SHOW TABLE ----
+    st.dataframe(df_match)
 
-        if subset.empty:
-            all_lines.append(f"❌ No records found for **{tid}**.")
-            continue
+    # ---- CSV EXPORT ----
+    csv = df_match.to_csv(index=False)
+    st.download_button(
+        label="⬇️ Download these entries as CSV",
+        data=csv,
+        file_name=f"{ticket}_entries.csv",
+        mime="text/csv"
+    )
 
-        # Save for Streamlit UI layer to show as dataframe
-        LAST_TICKET_LOOKUP = subset.copy()
-
-        all_lines.append(
-            f"📄 **Found {len(subset)} record(s) for ticket {tid}.**\n"
-            f"Displaying full table below 👇"
-        )
-
-    return "\n\n".join(all_lines) if all_lines else None
+    return ""  # Streamlit already rendered everything

@@ -103,6 +103,9 @@ with st.sidebar:
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
+if "last_df" not in st.session_state:
+    st.session_state["last_df"] = None
+
 st.subheader("💬 Ask MiniTwin")
 
 query = st.text_input(
@@ -114,58 +117,47 @@ col1, col2 = st.columns([1, 5])
 with col1:
     run_btn = st.button("Ask MiniTwin")
 
-if run_btn and query.strip():
-    try:
-        answer = skybar_answer(query, df)
-    except Exception as e:
-        answer = f"⚠️ Error while processing your request:\n\n`{e}`"
-
-    st.session_state["history"].append({"role": "user", "content": query})
-    st.session_state["history"].append({"role": "assistant", "content": answer})
-
-# Show history
-for msg in st.session_state["history"]:
-    if msg["role"] == "user":
-        st.markdown(f"**You:** {msg['content']}")
-    else:
-        st.markdown(f"**MiniTwin:**\n\n{msg['content']}")
-        st.markdown("---")
-
+# -------------------------------
+# Handle query
+# -------------------------------
 if run_btn and query.strip():
     try:
         text, df_result = skybar_answer(query, df)
     except Exception as e:
-        st.session_state["history"].append({
-            "role": "assistant",
-            "content": f"⚠️ Error while processing your request:\n\n`{e}`"
-        })
+        text = f"⚠️ Error while processing your request:\n\n`{e}`"
         df_result = None
-        text = None
 
-    # Store text response for chat
-    st.session_state["history"].append({
-        "role": "user",
-        "content": query,
-    })
+    # Save chat messages
+    st.session_state["history"].append({"role": "user", "content": query})
+    st.session_state["history"].append({"role": "assistant", "content": text})
 
-    st.session_state["history"].append({
-        "role": "assistant",
-        "content": text,
-    })
+    # Save dataframe result
+    st.session_state["last_df"] = df_result
 
-    # Store result dataframe separately
-    if df_result is not None:
-        st.session_state["last_df"] = df_result
-    else:
-        st.session_state["last_df"] = None
-
-
-# ----- RENDER HISTORY -----
+# -------------------------------
+# Render chat history
+# -------------------------------
 for msg in st.session_state["history"]:
     if msg["role"] == "user":
         st.markdown(f"**You:** {msg['content']}")
     else:
         st.markdown(f"**MiniTwin:**\n\n{msg['content']}")
-        st.markdown("---")
+    st.markdown("---")
 
+# -------------------------------
+# Render dataframe + CSV export
+# -------------------------------
+if st.session_state["last_df"] is not None:
+    df_show = st.session_state["last_df"]
+
+    st.subheader("📄 Matching Entries")
+    st.dataframe(df_show, use_container_width=True)
+
+    csv = df_show.to_csv(index=False)
+    st.download_button(
+        label="⬇️ Download results as CSV",
+        data=csv,
+        file_name="minitwin_results.csv",
+        mime="text/csv"
+    )
 

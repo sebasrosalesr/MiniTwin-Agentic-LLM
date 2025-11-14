@@ -1,4 +1,3 @@
-%%writefile /content/skybar/intents/ticket_status.py
 import re
 import pandas as pd
 

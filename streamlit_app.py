@@ -130,3 +130,55 @@ for msg in st.session_state["history"]:
     else:
         st.markdown(f"**MiniTwin:**\n\n{msg['content']}")
         st.markdown("---")
+
+if run_btn and query.strip():
+    try:
+        text, df_result = skybar_answer(query, df)
+    except Exception as e:
+        st.session_state["history"].append({
+            "role": "assistant",
+            "content": f"⚠️ Error while processing your request:\n\n`{e}`"
+        })
+        df_result = None
+        text = None
+
+    # Store text response for chat
+    st.session_state["history"].append({
+        "role": "user",
+        "content": query,
+    })
+
+    st.session_state["history"].append({
+        "role": "assistant",
+        "content": text,
+    })
+
+    # Store result dataframe separately
+    if df_result is not None:
+        st.session_state["last_df"] = df_result
+    else:
+        st.session_state["last_df"] = None
+
+
+# ----- RENDER HISTORY -----
+for msg in st.session_state["history"]:
+    if msg["role"] == "user":
+        st.markdown(f"**You:** {msg['content']}")
+    else:
+        st.markdown(f"**MiniTwin:**\n\n{msg['content']}")
+        st.markdown("---")
+
+# ----- SHOW DATAFRAME + EXPORT BUTTON -----
+if st.session_state.get("last_df") is not None:
+    df_to_show = st.session_state["last_df"]
+
+    st.subheader("📄 Matching Entries")
+    st.dataframe(df_to_show, use_container_width=True)
+
+    csv = df_to_show.to_csv(index=False)
+    st.download_button(
+        "⬇️ Download results as CSV",
+        data=csv,
+        mime="text/csv",
+        file_name="minitwin_results.csv"
+    )

@@ -40,22 +40,26 @@ INTENTS: List[Callable[[str, pd.DataFrame], Optional[Tuple[str, Optional[pd.Data
 # --------------------------------------------------
 # ROUTER — ALWAYS RETURNS (text, df)
 # --------------------------------------------------
-def skybar_answer(query: str, df: pd.DataFrame):
+def skybar_answer(query: str, df: pd.DataFrame) -> Tuple[str, Optional[pd.DataFrame]]:
+    """
+    Main orchestrator for MiniTwin.
+    Always returns:
+        (text_response, df_result or None)
+    """
+
     for intent in INTENTS:
         result = intent(query, df)
 
-        # Intent returned nothing → skip
         if result is None:
             continue
 
-        # Intent returned (text, dataframe)
-        if isinstance(result, tuple) and len(result) == 2:
-            text, df_out = result
-            return {"text": text, "df": df_out}
-
-        # Intent returned just text
+        # Intent returned only a string
         if isinstance(result, str):
-            return {"text": result, "df": None}
+            return (result, None)
+
+        # Intent returned (text, df)
+        if isinstance(result, tuple) and len(result) == 2:
+            return result
 
 
     # Fallback help message

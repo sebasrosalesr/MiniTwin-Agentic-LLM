@@ -1,8 +1,15 @@
 import streamlit as st
 import pandas as pd
+from dateutil.parser import parse as dtparse
+
+import firebase_admin
+from firebase_admin import credentials, db
 
 from skybar.intent_router import skybar_answer
 
+# -------------------------------------------------
+# Page config
+# -------------------------------------------------
 st.set_page_config(
     page_title="MiniTwin – Credit Ops Agent",
     page_icon="🤖",
@@ -10,46 +17,89 @@ st.set_page_config(
 )
 
 st.title("🤖 MiniTwin – Credit Operations Agent")
-st.markdown(
-    "Upload your **credit export CSV** and ask questions like:\n"
+st.caption(
+    "Ask things like:\n"
     "- `MiniTwin, give me a credit overview`\n"
     "- `MiniTwin, what tickets are priority right now?`\n"
     "- `MiniTwin, show the credit aging summary`\n"
     "- `MiniTwin, any unusual or suspicious credits lately?`\n"
 )
 
+# -------------------------------------------------
+# Firebase init + data loader
+# -------------------------------------------------
+def init_firebase():
+    firebase_config = dict(st.secrets["firebase"])
+    # fix escaped newlines in private key
+    if "private_key" in firebase_config and "\\n" in firebase_config["private_key"]:
+        firebase_config["private_key"] = firebase_config["private_key"].replace("\\n", "\n")
 
-# -------------------------
-# 1. Data loader
-# -------------------------
-with st.sidebar:
-    st.header("📂 Data")
-    uploaded_file = st.file_uploader("Upload credit CSV", type=["csv"])
+    cred = credentials.Certificate(firebase_config)
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(
+            cred,
+            {"databaseURL": "https://creditapp-tm-default-rtdb.firebaseio.com/"},
+        )
+    return True
 
-    if uploaded_file is not None:
+
+def safe_parse_force_string(x):
+    try:
+        return pd.to_datetime(dtparse(str(x), fuzzy=True))
+    except Exception:
+        return pd.NaT
+
+
+@st.cache_data(show_spinner=True, ttl=120)
+def load_data():
+    cols = [
+        "Record ID",
+        "Ticket Number",
+        "Requested By",
+        "Sales Rep",
+        "Issue Type",
+        "Date",
+        "Status",
+        "RTN_CR_No",
+        "Customer Number",
+        "Item Number",
+        "Credit Request Total",
+    ]
+    ref = db.reference("credit_requests")
+    raw = ref.get() or {}
+
+    df_ = pd.DataFrame([{c: v.get(c, None) for c in cols} for v in raw.values()])
+
+    # dates
+    df_["Date"] = df_["Date"].apply(safe_parse_force_string)
+    df_ = df_.dropna(subset=["Date"]).copy()
+
+    if pd.api.types.is_datetime64_any_dtype(df_["Date"]):
         try:
-            df = pd.read_csv(uploaded_file)
-        except UnicodeDecodeError:
-            df = pd.read_csv(uploaded_file, encoding="latin-1")
+            df_["Date"] = df_["Date"].dt.tz_localize(None)
+        except Exception:
+            pass
 
-        st.session_state["df"] = df
-        st.success(f"Loaded {len(df):,} rows.")
-        if st.checkbox("Show sample data"):
-            st.dataframe(df.head(50))
-    else:
-        st.info("Upload a CSV to start.")
+    return df_
 
 
-# If no data, stop here
+# init Firebase + load once
+init_firebase()
 if "df" not in st.session_state:
-    st.stop()
+    st.session_state["df"] = load_data()
 
 df = st.session_state["df"]
 
+# Sidebar: data info
+with st.sidebar:
+    st.header("📂 Data from Firebase")
+    st.write(f"Rows loaded: **{len(df):,}**")
+    if st.checkbox("Show sample data"):
+        st.dataframe(df.head(50), use_container_width=True)
 
-# -------------------------
-# 2. Simple chat interface
-# -------------------------
+# -------------------------------------------------
+# MiniTwin chat interface
+# -------------------------------------------------
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
@@ -70,12 +120,8 @@ if run_btn and query.strip():
     except Exception as e:
         answer = f"⚠️ Error while processing your request:\n\n`{e}`"
 
-    st.session_state["history"].append(
-        {"role": "user", "content": query}
-    )
-    st.session_state["history"].append(
-        {"role": "assistant", "content": answer}
-    )
+    st.session_state["history"].append({"role": "user", "content": query})
+    st.session_state["history"].append({"role": "assistant", "content": answer})
 
 # Show history
 for msg in st.session_state["history"]:

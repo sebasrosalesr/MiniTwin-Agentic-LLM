@@ -43,11 +43,12 @@ def init_firebase():
     return True
 
 
+# ✅ Robust parse, NEVER drop rows
 def safe_parse_force_string(x):
     try:
         return pd.to_datetime(dtparse(str(x), fuzzy=True))
     except Exception:
-        return pd.NaT
+        return pd.NaT  # keep original row, mark date as invalid
 
 
 @st.cache_data(show_spinner=True, ttl=120)
@@ -65,20 +66,24 @@ def load_data():
         "Item Number",
         "Credit Request Total",
     ]
+
     ref = db.reference("credit_requests")
     raw = ref.get() or {}
 
     df_ = pd.DataFrame([{c: v.get(c, None) for c in cols} for v in raw.values()])
 
-    # dates
+    # Parse dates safely, KEEP all rows
     df_["Date"] = df_["Date"].apply(safe_parse_force_string)
-    df_ = df_.dropna(subset=["Date"]).copy()
 
-    if pd.api.types.is_datetime64_any_dtype(df_["Date"]):
-        try:
-            df_["Date"] = df_["Date"].dt.tz_localize(None)
-        except Exception:
-            pass
+    # ❌ (Removed) — do NOT drop NaT rows
+    # df_ = df_.dropna(subset=["Date"])
+
+    # Localize only valid timestamps
+    try:
+        valid_mask = df_["Date"].notna()
+        df_.loc[valid_mask, "Date"] = df_.loc[valid_mask, "Date"].dt.tz_localize(None)
+    except Exception:
+        pass
 
     return df_
 

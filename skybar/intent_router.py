@@ -2,7 +2,6 @@ from typing import Callable, List
 
 import pandas as pd
 
-from skybar.intents.ticket_status import intent_ticket_status
 from skybar.intents.record_lookup import intent_record_lookup
 from skybar.intents.customer_tickets import intent_customer_tickets
 from skybar.intents.credit_activity import intent_credit_activity
@@ -20,7 +19,6 @@ from skybar.intents.ticket_requests import intent_ticket_requests
 
 # List of all intent handlers MiniTwin will try, in order
 INTENTS: List[Callable[[str, pd.DataFrame], str | None]] = [
-    intent_ticket_status,
     intent_ticket_requests,
     intent_record_lookup,      # NEW: ticket / invoice existence check
     intent_customer_tickets,

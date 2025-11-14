@@ -3,6 +3,7 @@ from typing import Callable, List
 import pandas as pd
 
 from skybar.intents.ticket_status import intent_ticket_status
+from skybar.intents.record_lookup import intent_record_lookup
 from skybar.intents.customer_tickets import intent_customer_tickets
 from skybar.intents.credit_activity import intent_credit_activity
 from skybar.intents.credit_numbers import intent_rtn_summary
@@ -19,6 +20,7 @@ from skybar.intents.credit_anomalies import intent_credit_anomalies
 # List of all intent handlers MiniTwin will try, in order
 INTENTS: List[Callable[[str, pd.DataFrame], str | None]] = [
     intent_ticket_status,
+    intent_record_lookup,      # NEW: ticket / invoice existence check
     intent_customer_tickets,
     intent_credit_activity,
     intent_rtn_summary,
@@ -48,16 +50,18 @@ def skybar_answer(query: str, df: pd.DataFrame) -> str:
         "MiniTwin here 🤖 I didn't fully understand that request.\n\n"
         "Right now I can help you with:\n"
         "1. Ticket status — e.g. `MiniTwin, status on ticket R-048484`\n"
-        "2. Customer history — e.g. `MiniTwin, show all tickets for customer YAM in last 30 days`\n"
-        "3. Credit activity — e.g. `MiniTwin, how many credits did I update from Nov 1st to today?`\n"
-        "4. Credits with RTN — e.g. `MiniTwin, how many credits have a credit number?`\n"
-        "5. Priority tickets — e.g. `MiniTwin, what tickets are priority right now?`\n"
-        "6. Credit aging — e.g. `MiniTwin, show the credit aging summary` or "
+        "2. Record lookup — e.g. `MiniTwin, is ticket R-040699 logged in the system?` "
+        "or `MiniTwin, do we have invoice 14068709 on record?`\n"
+        "3. Customer history — e.g. `MiniTwin, show all tickets for customer YAM in last 30 days`\n"
+        "4. Credit activity — e.g. `MiniTwin, how many credits did I update from Nov 1st to today?`\n"
+        "5. Credits with RTN — e.g. `MiniTwin, how many credits have a credit number?`\n"
+        "6. Priority tickets — e.g. `MiniTwin, what tickets are priority right now?`\n"
+        "7. Credit aging — e.g. `MiniTwin, show the credit aging summary` or "
         "`MiniTwin, show credits over 60 days`\n"
-        "7. Stalled tickets — e.g. `MiniTwin, which tickets haven't been updated in 7 days?`\n"
-        "8. Overall overview — e.g. `MiniTwin, give me a credit overview`\n"
-        "9. Top accounts — e.g. `MiniTwin, which accounts have the most credits?`\n"
-        "10. Top items — e.g. `MiniTwin, which items have the most credits issued?`\n"
-        "11. Credit trends — e.g. `MiniTwin, are there any credit trends worth sharing?`\n"
-        "12. Anomalies — e.g. `MiniTwin, any unusual or suspicious credits lately?`\n"
+        "8. Stalled tickets — e.g. `MiniTwin, which tickets haven't been updated in 7 days?`\n"
+        "9. Overall overview — e.g. `MiniTwin, give me a credit overview`\n"
+        "10. Top accounts — e.g. `MiniTwin, which accounts have the most credits?`\n"
+        "11. Top items — e.g. `MiniTwin, which items have the most credits issued?`\n"
+        "12. Credit trends — e.g. `MiniTwin, are there any credit trends worth sharing?`\n"
+        "13. Anomalies — e.g. `MiniTwin, any unusual or suspicious credits lately?`\n"
     )

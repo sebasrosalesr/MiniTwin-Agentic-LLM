@@ -1,5 +1,4 @@
-from typing import Callable, List
-
+from typing import Callable, List, Tuple, Optional
 import pandas as pd
 
 from skybar.intents.ticket_status import intent_ticket_status
@@ -17,12 +16,13 @@ from skybar.intents.credit_trends import intent_credit_trends
 from skybar.intents.credit_anomalies import intent_credit_anomalies
 from skybar.intents.ticket_requests import intent_ticket_requests
 
-
-# List of all intent handlers MiniTwin will try, in order
-INTENTS: List[Callable[[str, pd.DataFrame], str | None]] = [
+# --------------------------------------------------
+# INTENT LIST
+# --------------------------------------------------
+INTENTS: List[Callable[[str, pd.DataFrame], Optional[Tuple[str, Optional[pd.DataFrame]]]]] = [
     intent_ticket_status,
-    intent_ticket_requests,
-    intent_record_lookup,      # NEW: ticket / invoice existence check
+    intent_ticket_requests,    # NEW — returns (text, df)
+    intent_record_lookup,
     intent_customer_tickets,
     intent_credit_activity,
     intent_rtn_summary,
@@ -37,18 +37,32 @@ INTENTS: List[Callable[[str, pd.DataFrame], str | None]] = [
 ]
 
 
-def skybar_answer(query: str, df: pd.DataFrame) -> str:
+# --------------------------------------------------
+# ROUTER — ALWAYS RETURNS (text, df)
+# --------------------------------------------------
+def skybar_answer(query: str, df: pd.DataFrame) -> Tuple[str, Optional[pd.DataFrame]]:
     """
-    Main entrypoint for MiniTwin.
-    It loops through all INTENTS and returns the first non-None answer.
+    Main orchestrator for MiniTwin.
+    Always returns:
+        (text_response, df_result or None)
     """
+
     for intent in INTENTS:
         result = intent(query, df)
-        if isinstance(result, str) and result.strip():
+
+        if result is None:
+            continue
+
+        # Intent returned only a string
+        if isinstance(result, str):
+            return (result, None)
+
+        # Intent returned (text, df)
+        if isinstance(result, tuple) and len(result) == 2:
             return result
 
-    # Fallback help text
-    return (
+    # Fallback help message
+    help_text = (
         "MiniTwin here 🤖 I didn't fully understand that request.\n\n"
         "Right now I can help you with:\n"
         "1. Ticket status — e.g. `MiniTwin, status on ticket R-048484`\n"
@@ -67,3 +81,5 @@ def skybar_answer(query: str, df: pd.DataFrame) -> str:
         "12. Credit trends — e.g. `MiniTwin, are there any credit trends worth sharing?`\n"
         "13. Anomalies — e.g. `MiniTwin, any unusual or suspicious credits lately?`\n"
     )
+
+    return (help_text, None)

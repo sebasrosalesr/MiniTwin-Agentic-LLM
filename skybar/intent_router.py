@@ -15,11 +15,13 @@ from skybar.intents.top_accounts import intent_top_accounts
 from skybar.intents.top_items import intent_top_items
 from skybar.intents.credit_trends import intent_credit_trends
 from skybar.intents.credit_anomalies import intent_credit_anomalies
+from skybar.intents.ticket_requests import intent_ticket_requests
 
 
 # List of all intent handlers MiniTwin will try, in order
 INTENTS: List[Callable[[str, pd.DataFrame], str | None]] = [
     intent_ticket_status,
+    intent_ticket_requests,
     intent_record_lookup,      # NEW: ticket / invoice existence check
     intent_customer_tickets,
     intent_credit_activity,

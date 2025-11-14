@@ -168,17 +168,4 @@ for msg in st.session_state["history"]:
         st.markdown(f"**MiniTwin:**\n\n{msg['content']}")
         st.markdown("---")
 
-# ----- SHOW DATAFRAME + EXPORT BUTTON -----
-if st.session_state.get("last_df") is not None:
-    df_to_show = st.session_state["last_df"]
 
-    st.subheader("📄 Matching Entries")
-    st.dataframe(df_to_show, use_container_width=True)
-
-    csv = df_to_show.to_csv(index=False)
-    st.download_button(
-        "⬇️ Download results as CSV",
-        data=csv,
-        mime="text/csv",
-        file_name="minitwin_results.csv"
-    )
